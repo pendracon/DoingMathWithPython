@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""
+This program finds all the factors of a given number.
+
+* Written with Copilot+ *
+"""
 import sys
 
 def factor(num: int) -> list:
@@ -20,19 +25,32 @@ def factor(num: int) -> list:
 
 def main():
     num_to_factor = 0
+    do_loop = True
+    do_prompt = True
 
     if len(sys.argv) == 2:
         num_to_factor = sys.argv[1]
-    else:
-        num_to_factor = input("Enter a number to factor: ")
+        do_loop = False
+        do_prompt = False
+    
+    while True:
+        if do_prompt:
+            num_to_factor = input("Enter a number to factor (ENTER to exit): ")
 
-    try:
-        if not float(num_to_factor).is_integer():
-            print("Must enter a whole number to factor.")
+        if num_to_factor == '':
+            do_loop = False
         else:
-            print(factor(int(num_to_factor)))
-    except ValueError:
-        print("Invalid input. Please enter a whole number.")
+            try:
+                if not float(num_to_factor).is_integer():
+                    print("Must enter a whole number to factor.")
+                else:
+                    print(factor(int(num_to_factor)))
+                    print()
+            except ValueError:
+                print("Invalid input. Please enter a whole number.")
+
+        if not do_loop:
+            break
 # end def: main
 
 if __name__ == '__main__':

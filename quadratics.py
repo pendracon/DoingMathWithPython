@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 This program allows the user to perform various operations with a quadratic equation.
+
 * Written with Copilot+ *
 """
 import sys
@@ -60,30 +61,44 @@ def print_vertex_form(a: float, b: float, c: float):
 def main():
     a, b, c = 0, 0, 0
 
+    do_loop = True
+    do_prompt = True
+
     try:
         if len(sys.argv) == 4:
             a = float(sys.argv[1])
             b = float(sys.argv[2])
             c = float(sys.argv[3])
-        else:
-            a, b, c = get_coefficients()
+            do_loop = False
+            do_prompt = False
+        
+        while True:
+            if do_prompt:
+                a, b, c = get_coefficients()
 
-        print_operation_menu()
-        choice = input("Enter your choice: ")
+            print_operation_menu()
+            choice = input("Enter your choice: ")
 
-        if choice == '1':
-            print_roots(a, b, c)
-        elif choice == '2':
-            print_standard_form(a, b, c)
-        elif choice == '3':
-            print_intercept_form(a, b, c)
-        elif choice == '4':
-            print_vertex_form(a, b, c)
-        elif choice == '5':
-            print("Goodbye.")
-            sys.exit()
-        else:
-            print("Invalid choice.")
+            if choice == '1':
+                print_roots(a, b, c)
+            elif choice == '2':
+                print_standard_form(a, b, c)
+            elif choice == '3':
+                print_intercept_form(a, b, c)
+            elif choice == '4':
+                print_vertex_form(a, b, c)
+            elif choice == '5':
+                print("Goodbye.")
+                sys.exit()
+            else:
+                print("Invalid choice.")
+
+            if do_loop:
+                do_again = input("Do another operation? (y/n): ")
+                do_loop = do_again.lower() == 'y'
+            
+            if not do_loop:
+                break
     except ValueError:
         print("Invalid input. Please enter numbers only.")
 # end def: main

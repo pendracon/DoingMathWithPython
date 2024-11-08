@@ -4,6 +4,8 @@ A simple program to convert units between:
 - distances between kilometers and miles.
 - weights between kilograms and pounds.
 - temperatures between Celsius and Fahrenheit.
+
+* Written with Copilot+ *
 """
 import sys
 
