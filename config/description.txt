@@ -1,0 +1,3 @@
+This application plots various weather data obtained from the U.S. National
+Climatic Data Center (NCDC). Given one or more days, an hour range, station
+code, and data type, a plot is produced showing the data.

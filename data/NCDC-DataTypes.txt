@@ -1,0 +1,35 @@
+HLY-CLOD-PCTBKN - Clouds broken percentage
+HLY-CLOD-PCTCLR - Clouds clear percentage
+HLY-CLOD-PCTFEW - Clouds few percentage
+HLY-CLOD-PCTOVC - Clouds overcast percentage
+HLY-CLOD-PCTSCT - Clouds scattered percentage
+
+HLY-CLDH-NORMAL - Cooling degree hours
+
+HLY-DEWP-10PCTL - Dew point 10th percentile
+HLY-DEWP-90PCTL - Dew point 90th percentile
+HLY-DEWP-NORMAL - Dew point mean
+
+HLY-HIDX-NORMAL - Heat index mean
+
+HLY-HTDH-NORMAL - Heating degree hours
+
+HLY-PRES-10PCTL - Sea level pressure 10th percentile
+HLY-PRES-90PCTL - Sea level pressure 90th percentile
+HLY-PRES-NORMAL - Sea level pressure mean
+
+HLY-TEMP-10PCTL - Temperature 10th percentile
+HLY-TEMP-90PCTL - Temperature 90th percentile
+HLY-TEMP-NORMAL - Temperature mean
+
+HLY-WIND-1STDIR - Prevailing wind direction (1-8)
+HLY-WIND-1STPCT - Prevailing wind percentage
+HLY-WIND-2NDDIR - Secondary wind direction (1-8)
+HLY-WIND-2NDPCT - Secondary wind percentage
+HLY-WIND-AVGSPD - Average wind speed
+HLY-WIND-PCTCLM - Percentage calm
+HLY-WIND-VCTDIR - Mean wind vector direction
+HLY-WIND-VCTSPD - Mean wind vector magnitude
+
+HLY-WCHL-NORMAL - Wind chill mean
+
