@@ -16,9 +16,9 @@ KEY_DB_URL      = "connectionUrl"
 KEY_GET_DATATYPE_STMT = "getDataType"
 
 # measurements statement keys - column precedence: station_code, year, hour, data_type_id, measurement
-KEY_GET_MEASUREMENTS_STMT = "getMeasurements"
+KEY_GET_HOURLY_MEASUREMENTS_STMT = "getMeasurements"
 KEY_GET_MEASUREMENTS_BY_DATE_STMT = "getMeasurementsByDate"
-KEY_GET_MEASUREMENT_BY_TYPE_STMT = "getMeasurementByType"
+KEY_GET_MEASUREMENTS_BY_TYPE_STMT = "getMeasurementsByType"
 KEY_ADD_MEASUREMENT_STMT = "addMeasurement"
 KEY_UPDATE_MEASUREMENT_STMT = "updateMeasurement"
 
@@ -112,78 +112,6 @@ def execute_statement(config: ApplicationConfig, conn, statement: str = ''):
     return (stmt_results, serr)
 # end def: execute_statement
 
-"""
-def get_measurements(conn, stationCode: str, year: int, month:int, days: tuple = (-1), hours: tuple = (-1)):
-    " "" Query and return the list of measurements "" "
-    global _dbConfig
-    serr = svc.NoError
-    measurementList = []
-
-    if conn:
-        if days == (-1) and hours == (-1):
-            try:
-                results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main').format(stationCode, year, f"{month:02d}")))
-
-                for row in results:
-                    mdl.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
-
-                    measurementList.append(mdl.MeasurementRow(row))
-            except Exception as err:
-                serr = svc.DbQueryError.withCause(err)
-        elif hours == (-1):
-            for day in days:
-                try:
-                    results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main').format(stationCode, year, f"{month:02d}-{day:02d}")))
-
-                    for row in results:
-                        mdl.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
-
-                        measurementList.append(mdl.MeasurementRow(row))
-                except Exception as err:
-                    serr = svc.DbQueryError.withCause(err)
-        else:
-            for hour in hours:
-                try:
-                    results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main').format(stationCode, year, f"{month:02d}-%T{hour:02d}")))
-
-                    for row in results:
-                        mdl.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
-
-                        measurementList.append(mdl.MeasurementRow(row))
-                except Exception as err:
-                    serr = svc.DbQueryError.withCause(err)
-
-
-
-            for day in range(1, 32):
-
-                hour = f"{month:02d}"
-        if hours == (-1):
-            hours = range(0, 24)
-        for hour in hours:
-            for day in range(1,32):
-                hourstr = f"{month:02d}-{day:02d}T{hour:02d}:00:00"
-                try:
-                    results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main').format(stationCode, year, hourstr)))
-
-                    for row in results:
-                        mdl.Measurement(year, (row[0], stationCode, row[1], hourstr, year, row[2]))
-                        
-                        measurementList.append(mdl.MeasurementRow(row))
-                except Exception as err:
-                    serr = svc.DbQueryError.withCause(err)
-        try:
-            results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main')))
-            
-            for row in results:
-                updateList.append(mdl.PolicyRow(row))
-        except Exception as err:
-            serr = svc.DbQueryError.withCause(err)
-
-    return (updateList, serr)
-# end def: GetPolicyUpdates
-"""
-
 def get_datatype(config: ApplicationConfig, conn, dataType: str):
     """ Query and return information about the specified weather data type """
     global _dbConfig
@@ -200,19 +128,26 @@ def get_datatype(config: ApplicationConfig, conn, dataType: str):
 
 def get_measurement(config: ApplicationConfig, conn, stationId: str, year: int, hour: str, dataTypeId: str):
     """ Query and return the specified measurement """
+    return get_hourly_measurements(config, conn, stationId, year, hour, hour, dataTypeId)
+# end def: get_measurement
+
+def get_hourly_measurements(config: ApplicationConfig, conn, station_id: str, year: int, hour_start: str, hour_end: str, data_type_id: str):
+    """ Query and return the list of measurements """
     global _dbConfig
     serr = svc.NoError
-    measurement = []
+    measurements = []
 
-    results, serr = execute_statement(config, conn, _dbConfig.get_value(KEY_GET_MEASUREMENT_BY_TYPE_STMT, 'Main').format(stationId, year, hour, dataTypeId))
+    stmt = _dbConfig.get_value(KEY_GET_MEASUREMENTS_BY_TYPE_STMT, 'Main').format(station_id, year, hour_start, hour_end, data_type_id)
+    results, serr = execute_statement(config, conn, stmt)
 
-    for row in results:
-        #print("row: {}".format(row))
-        if len(row) > 0:
-            measurement.append(mdl.Measurement(year, row))
+    if not serr.isError():
+        for row in results:
+            #print("row: {}".format(row))
+            if len(row) > 0:
+                measurements.append(mdl.Measurement(year, row))
 
-    return (measurement, serr)
-# end def: get_measurement
+    return (measurements, serr)
+# end def: get_hourly_measurements
 
 def get_station(config: ApplicationConfig, conn, stationCode: str):
     """ Query and return the specified station """
@@ -221,7 +156,7 @@ def get_station(config: ApplicationConfig, conn, stationCode: str):
 
     results, serr = execute_statement(config, conn, _dbConfig.get_value(KEY_GET_STATION_STMT, 'Main').format(stationCode))
 
-    if len(results) > 0:
+    if not serr.isError() and len(results) > 0:
         row = results[0]
         station = mdl.Station(row)
 

@@ -33,45 +33,62 @@ def get_datatype(config: cfg.ApplicationConfig, conn, is_quiet: bool = True):
     return (datatype, serr)
 # end def: get_datatype
 
-"""
-def getMeasurements(config: cfg.ApplicationConfig, conn, stationCode: str, year: int, month:int, hours: tuple):
-    global actionSwitch
+def get_measurements(config: cfg.ApplicationConfig, conn, is_quiet: bool = True):
+    serr = svc.NoError
+    measurements = []
 
-    updateList, serr = rbacdm.GetPolicyUpdates(config, conn)
-    updateMap = {}
-    catalogGroups = {}
+    station_id: str = None
+    year: int = 0
+    month: int = 0
+    day: int = 0
+    hour_start: int = 0
+    hour_end: int = 0
+    data_type: str = None
 
-    if serr.isError():
-        serr = reportError(config, "...error querying db: serr = [{}]", serr)
+    if not config.AssignedValue(cfgKeys.KEY_CLIENT_PARAMS):
+        serr = svc.ClientInputError(mesg="Search parameters not provided.")
     else:
-        logInfo(f"...got {len(updateList)} policy update rows from RBAC")
+        try:
+            params = config.ValueOf(cfgKeys.KEY_CLIENT_PARAMS).split(';')
+            if (len(params) != 4):
+                raise ValueError("Incomplete search parameters provided.")
+            
+            for param in params:
+                key, value = param.split(':')
+                if key.strip() == 'station':
+                    station_id = value.strip()
+                elif key.strip() == 'date':
+                    mdy = value.strip().split('-')
+                    month = int(mdy[0])
+                    day = int(mdy[1])
+                    year = int(mdy[2])
+                elif key.strip() == 'hours':
+                    hs = value.strip().split('-')
+                    hour_start = int(hs[0])
+                    hour_end = int(hs[1])
+                elif key.strip() == 'type':
+                    data_type = value.strip().upper()
+                    if not data_type.startswith('HLY-'):
+                        data_type = f'HLY-{data_type}'
+                else:
+                    raise ValueError("Unsupported search parameter provided.")
+        except Exception as err:
+            serr = svc.ClientInputError(mesg="Invalid search parameters provided.").withCause(err)
 
-        for rbacUpdate in updateList:
-            catalogGroups = updateCatalogUsers(catalogGroups, rbacUpdate.getAsList(db.KEY_CATALOG), rbacUpdate.getAsList(db.KEY_GROUP), rbacUpdate.getAsList(db.KEY_USER))
-            policyUpdate: db.RangerPolicy = ToRangerPolicy(config.ValueOf(cfgKeys.KEY_POLICY_MANAGER_SERVICE), rbacUpdate)
+    if conn:
+        try:
+            start = f'{month:02d}-{day:02d}T{hour_start:02d}:00:00'
+            end = f'{month:02d}-{day:02d}T{hour_end:02d}:00:00'
+            measurements, serr = db.get_hourly_measurements(config, conn, station_id, year, start, end, data_type)
 
-            rpd = updateMap.get(policyUpdate.getField('name'))
-            action = actionSwitch.get(rbacUpdate.get(db.KEY_ACTION).upper())
-            if rpd:
-                rpd['policy'].mergeWith(policyUpdate)
-                rpd['dbkeys'].append(rbacUpdate.get(db.KEY_ID))
-                if rpd['valid']:
-                    rpd['valid'] = (rpd['action'] == action)
-            else:
-                rpd = {
-                    'policy': policyUpdate,
-                    'action': action,
-                    'dbkeys': [rbacUpdate.get(db.KEY_ID)],
-                    'valid': True
-                }
-                updateMap[policyUpdate.getField('name')] = rpd
+            if not serr.isError() and not is_quiet:
+                for measurement in measurements:
+                    print(measurement.toJson())
+        except Exception as err:
+            serr = svc.DbQueryError.withCause(err)
 
-        if len(updateList) > 0:
-            logInfo(f"...converted RBAC rows to {len(updateMap)} Ranger policies...")
-
-    return (updateMap, catalogGroups, serr)
-# end def: getMeasurements
-"""
+    return (measurements, serr)
+# end def: get_measurements
 
 def get_station(config: cfg.ApplicationConfig, conn, is_quiet: bool = True):
     serr = svc.NoError
@@ -80,7 +97,7 @@ def get_station(config: cfg.ApplicationConfig, conn, is_quiet: bool = True):
     if conn:
         try:
             stationCode = config.ValueOf(cfgKeys.KEY_CLIENT_PARAMS)
-            station, serr = db.get_station(conn, stationCode)
+            station, serr = db.get_station(config, conn, stationCode)
             if not serr.isError() and not is_quiet:
                 print(station.toJson())
         except Exception as err:
@@ -166,11 +183,11 @@ def execute(config: cfg.ApplicationConfig):
 
         if not serr.isError():
             if cmd == 'GetDatatype':
-                serr = get_datatype(config, conn, False)
+                _, serr = get_datatype(config, conn, False)
             elif cmd == 'GetMeasurements':
-                pass #serr = get_measurements(config, conn)
+                _, serr = get_measurements(config, conn, False)
             elif cmd == 'GetStation':
-                serr = get_station(config, conn, False)
+                _, serr = get_station(config, conn, False)
             elif cmd == 'UpdateDatabase':
                 serr = update_weatherdb(config, conn)
 
