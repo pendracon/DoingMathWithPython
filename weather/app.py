@@ -17,6 +17,22 @@ from weather.util.utils import LoadTextFile, LogError, LogWarn, LogInfo
 
 testMode = False
 
+def get_datatype(config: cfg.ApplicationConfig, conn, is_quiet: bool = True):
+    serr = svc.NoError
+    datatype = None
+
+    if conn:
+        try:
+            dtype = config.ValueOf(cfgKeys.KEY_CLIENT_PARAMS)
+            datatype, serr = db.get_datatype(config, conn, dtype)
+            if not serr.isError() and not is_quiet:
+                print(datatype.toString())
+        except Exception as err:
+            serr = svc.DbQueryError.withCause(err)
+
+    return (datatype, serr)
+# end def: get_datatype
+
 """
 def getMeasurements(config: cfg.ApplicationConfig, conn, stationCode: str, year: int, month:int, hours: tuple):
     global actionSwitch
@@ -57,44 +73,74 @@ def getMeasurements(config: cfg.ApplicationConfig, conn, stationCode: str, year:
 # end def: getMeasurements
 """
 
-def get_station(config: cfg.ApplicationConfig, conn):
+def get_station(config: cfg.ApplicationConfig, conn, is_quiet: bool = True):
     serr = svc.NoError
-    station = None
+    station: mdl.Station = None
 
     if conn:
         try:
             stationCode = config.ValueOf(cfgKeys.KEY_CLIENT_PARAMS)
             station, serr = db.get_station(conn, stationCode)
-            if not serr.isError():
+            if not serr.isError() and not is_quiet:
                 print(station.toJson())
         except Exception as err:
             serr = svc.DbQueryError.withCause(err)
 
-    return serr
+    return (station, serr)
 # end def: get_station
 
 def update_weatherdb(config: cfg.ApplicationConfig, conn):
     serr = svc.NoError
 
-    file = config.ValueOf(cfgKeys.KEY_CLIENT_INPUT)
-    with open(file, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-        fields_list = next(reader)
-        for row in reader:
-            station = db.Station(row[0], row[1], float(row[2]), float(row[3]), float(row[4]))
-            try:
-                db.upsert_station(conn, station)
-            except Exception as err:
-                serr = svc.DbQueryError.withCause(err)
+    if not config.AssignedValue(cfgKeys.KEY_CLIENT_INPUT):
+        serr = svc.ClientInputError(mesg="Input file not provided.")
+    elif not config.AssignedValue(cfgKeys.KEY_CLIENT_PARAMS):
+        serr = svc.ClientInputError(mesg="Input parameter (year) not provided.")
+    else:
+        try:
+            file = config.ValueOf(cfgKeys.KEY_CLIENT_INPUT)
+            year = int(config.ValueOf(cfgKeys.KEY_CLIENT_PARAMS))
+        except Exception as err:
+            serr = svc.ClientInputError(mesg="Invalid input parameter (year) provided.").withCause(err)
 
-            """
-            measurement = db.Measurement(year, (0, stationCode, 0, f"{month:02d}-01T{hour:02d}:00:00", year, measurement))
+    if not serr.isError():
+        station: mdl.Station = None
+        curr_station: mdl.Station = None
+        datatypes = []
 
-            try:
-                db.AddMeasurement(conn, measurement)
-            except Exception as err:
-                serr = svc.DbQueryError.withCause(err)
-            """
+        with open(file, newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+            fields_list = next(reader)
+            for row in reader:
+                station = mdl.Station((row[0], row[1], float(row[2]), float(row[3]), float(row[4])))
+                if station != curr_station:
+                    try:
+                        serr = db.upsert_station(config, conn, station)
+                        curr_station = station
+                    except Exception as err:
+                        serr = svc.DbQueryError.withCause(err)
+
+                if not serr.isError():
+                    hour = row[5]
+                    for i in range(6, len(row)):
+                        dtype = fields_list[i]
+                        if dtype not in datatypes:
+                            config.SetValueOf(cfgKeys.KEY_CLIENT_PARAMS, dtype)
+                            _, serr = get_datatype(config, conn)
+                            datatypes.append(dtype)
+
+                        if not serr.isError():
+                            measurement = mdl.Measurement(year, (0, station.get(mdl.KEY_CODE), 0, hour, dtype, row[i]))
+                            try:
+                                serr = db.upsert_measurement(config, conn, measurement)
+                            except Exception as err:
+                                serr = svc.DbQueryError.withCause(err)
+
+                        if serr.isError():
+                            break
+
+                if serr.isError():
+                    break
 
     return serr
 # end def: update_weatherdb
@@ -119,10 +165,14 @@ def execute(config: cfg.ApplicationConfig):
         conn, serr = db.connect(config)
 
         if not serr.isError():
-            if cmd == 'UpdateDatabase':
-                serr = update_weatherdb(config, conn)
+            if cmd == 'GetDatatype':
+                serr = get_datatype(config, conn, False)
+            elif cmd == 'GetMeasurements':
+                pass #serr = get_measurements(config, conn)
             elif cmd == 'GetStation':
-                serr = get_station(config, conn)
+                serr = get_station(config, conn, False)
+            elif cmd == 'UpdateDatabase':
+                serr = update_weatherdb(config, conn)
 
         db.close(conn)
 
@@ -143,6 +193,7 @@ def main():
 
     if config.AssignedValue(cfgKeys.KEY_CLIENT_COMMAND):
         switch = {
+            "GetDatatype": True,
             "GetMeasurements": True,
             "GetStation": True,
             "UpdateDatabase": True

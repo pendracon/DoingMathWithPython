@@ -1,4 +1,4 @@
-import weather.db.model as model
+import weather.db.model as mdl
 import weather.model.config_keys as cfgKeys
 import weather.model.service_error as svc
 import weather.util.config as ini
@@ -9,15 +9,23 @@ from weather.classes.app_config import ApplicationConfig
 from weather.util.utils import LogInfo
 
 KEY_AUTO_COMMIT = "autoCommit"
-KEY_AUTH_TYPE   = "authType"
 KEY_DB_NAME     = "databaseName"
 KEY_DB_URL      = "connectionUrl"
+
+# data types statement keys - column precedence: data_type_id, descr[iption]
+KEY_GET_DATATYPE_STMT = "getDataType"
+
+# measurements statement keys - column precedence: station_code, year, hour, data_type_id, measurement
 KEY_GET_MEASUREMENTS_STMT = "getMeasurements"
+KEY_GET_MEASUREMENTS_BY_DATE_STMT = "getMeasurementsByDate"
+KEY_GET_MEASUREMENT_BY_TYPE_STMT = "getMeasurementByType"
+KEY_ADD_MEASUREMENT_STMT = "addMeasurement"
+KEY_UPDATE_MEASUREMENT_STMT = "updateMeasurement"
+
+# stations statement keys - column precedence: code, station_name, latitude, longitude, elevation
 KEY_GET_STATION_STMT = "getStation"
 KEY_ADD_STATION_STMT = "addStation"
 KEY_UPDATE_STATION_STMT = "updateStation"
-KEY_SET_UPDATED_STMT = "flagPolicyUpdated"
-KEY_UPDATE_BY_KEY    = "flagPolicyByKey"
 
 _dbConfig: ini.IniConfig = None
 _dbProps = None
@@ -64,8 +72,7 @@ def connect(config: ApplicationConfig):
                 'user': config.ValueOf(cfgKeys.KEY_WEATHERDB_LOGIN),
                 'password': config.ValueOf(cfgKeys.KEY_WEATHERDB_PASSWORD),
                 'database': _dbConfig.get_value(KEY_DB_NAME, 'Main'),
-                'secure': secure,
-                KEY_AUTH_TYPE: 'connString'
+                'secure': secure
             }
 
             connString = _dbConfig.get_value(KEY_DB_URL, 'Main').format(**_dbProps)
@@ -84,6 +91,27 @@ def connect(config: ApplicationConfig):
     return (conn, serr)
 # end def: ConnectDb
 
+def execute_statement(config: ApplicationConfig, conn, statement: str = ''):
+    """ Query and return the specified station """
+    serr = svc.NoError
+    stmt_results = []
+
+    if conn:
+        try:
+            #print("Executing statement: {}".format(statement))
+            results = conn.execute(text(statement))
+
+            if results.returns_rows:
+                #print(results)
+                for row in results:
+                    stmt_results.append(row)
+        except Exception as err:
+            traceIt(config, "Error in execute_statement: {0}\nStatement: {1}".format(err, statement))
+            serr = svc.DbQueryError.withCause(err)
+
+    return (stmt_results, serr)
+# end def: execute_statement
+
 """
 def get_measurements(conn, stationCode: str, year: int, month:int, days: tuple = (-1), hours: tuple = (-1)):
     " "" Query and return the list of measurements "" "
@@ -97,9 +125,9 @@ def get_measurements(conn, stationCode: str, year: int, month:int, days: tuple =
                 results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main').format(stationCode, year, f"{month:02d}")))
 
                 for row in results:
-                    model.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
+                    mdl.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
 
-                    measurementList.append(model.MeasurementRow(row))
+                    measurementList.append(mdl.MeasurementRow(row))
             except Exception as err:
                 serr = svc.DbQueryError.withCause(err)
         elif hours == (-1):
@@ -108,9 +136,9 @@ def get_measurements(conn, stationCode: str, year: int, month:int, days: tuple =
                     results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main').format(stationCode, year, f"{month:02d}-{day:02d}")))
 
                     for row in results:
-                        model.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
+                        mdl.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
 
-                        measurementList.append(model.MeasurementRow(row))
+                        measurementList.append(mdl.MeasurementRow(row))
                 except Exception as err:
                     serr = svc.DbQueryError.withCause(err)
         else:
@@ -119,9 +147,9 @@ def get_measurements(conn, stationCode: str, year: int, month:int, days: tuple =
                     results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main').format(stationCode, year, f"{month:02d}-%T{hour:02d}")))
 
                     for row in results:
-                        model.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
+                        mdl.Measurement(year, (row[0], stationCode, row[1], row[2], year, row[3]))
 
-                        measurementList.append(model.MeasurementRow(row))
+                        measurementList.append(mdl.MeasurementRow(row))
                 except Exception as err:
                     serr = svc.DbQueryError.withCause(err)
 
@@ -139,16 +167,16 @@ def get_measurements(conn, stationCode: str, year: int, month:int, days: tuple =
                     results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main').format(stationCode, year, hourstr)))
 
                     for row in results:
-                        model.Measurement(year, (row[0], stationCode, row[1], hourstr, year, row[2]))
+                        mdl.Measurement(year, (row[0], stationCode, row[1], hourstr, year, row[2]))
                         
-                        measurementList.append(model.MeasurementRow(row))
+                        measurementList.append(mdl.MeasurementRow(row))
                 except Exception as err:
                     serr = svc.DbQueryError.withCause(err)
         try:
             results = conn.execute(text(_dbConfig.get_value(KEY_GET_MEASUREMENTS_STMT, 'Main')))
             
             for row in results:
-                updateList.append(model.PolicyRow(row))
+                updateList.append(mdl.PolicyRow(row))
         except Exception as err:
             serr = svc.DbQueryError.withCause(err)
 
@@ -156,52 +184,142 @@ def get_measurements(conn, stationCode: str, year: int, month:int, days: tuple =
 # end def: GetPolicyUpdates
 """
 
-def get_station(conn, stationCode: str):
-    """ Query and return the specified station """
+def get_datatype(config: ApplicationConfig, conn, dataType: str):
+    """ Query and return information about the specified weather data type """
+    global _dbConfig
+    data_type = None
+
+    results, serr = execute_statement(config, conn, _dbConfig.get_value(KEY_GET_DATATYPE_STMT, 'Main').format(dataType))
+
+    if len(results) > 0:
+        row = results[0]
+        data_type = mdl.DataType(row[0], row[1])
+
+    return (data_type, serr)
+# end def: get_datatype
+
+def get_measurement(config: ApplicationConfig, conn, stationId: str, year: int, hour: str, dataTypeId: str):
+    """ Query and return the specified measurement """
     global _dbConfig
     serr = svc.NoError
+    measurement = []
+
+    results, serr = execute_statement(config, conn, _dbConfig.get_value(KEY_GET_MEASUREMENT_BY_TYPE_STMT, 'Main').format(stationId, year, hour, dataTypeId))
+
+    for row in results:
+        #print("row: {}".format(row))
+        if len(row) > 0:
+            measurement.append(mdl.Measurement(year, row))
+
+    return (measurement, serr)
+# end def: get_measurement
+
+def get_station(config: ApplicationConfig, conn, stationCode: str):
+    """ Query and return the specified station """
+    global _dbConfig
     station = None
 
-    if conn:
-        try:
-            results = conn.execute(text(_dbConfig.get_value(KEY_GET_STATION_STMT, 'Main').format(stationCode)))
+    results, serr = execute_statement(config, conn, _dbConfig.get_value(KEY_GET_STATION_STMT, 'Main').format(stationCode))
 
-            if results:
-                row = results.fetchone()
-                station = model.Station(row)
-        except Exception as err:
-            serr = svc.DbQueryError.withCause(err)
+    if len(results) > 0:
+        row = results[0]
+        station = mdl.Station(row)
 
     return (station, serr)
 # end def: get_station
 
-def upsert_station(config: ApplicationConfig, conn, station: model.Station):
-    """ Flag the specified policy as being successfully processed """
+def upsert_measurement(config: ApplicationConfig, conn, measurement: mdl.Measurement):
+    """ Add or update the given measurement """
     global _dbConfig
     serr = svc.NoError
 
-    if conn:
-        try:
-            _station, serr = get_station(conn, station.get(model.KEY_CODE))
-            if serr.isError():
-                return serr
-            elif _station == None:
-                stmt = _dbConfig.get_value(KEY_ADD_STATION_STMT, 'Main').format(station.get(model.KEY_CODE), station.get(model.KEY_STATION_NAME), station.get(model.KEY_LATITUDE), station.get(model.KEY_LONGITUDE), station.get(model.KEY_ELEVATION))
-            elif _station.toString() != station.toString():
-                stmt = _dbConfig.get_value(KEY_UPDATE_STATION_STMT, 'Main').format(station.get(model.KEY_STATION_NAME), station.get(model.KEY_LATITUDE), station.get(model.KEY_LONGITUDE), station.get(model.KEY_ELEVATION), station.get(model.KEY_CODE))
+    stmt = None
+    try:
+        _measurements, serr = get_measurement(config, conn,
+                                                measurement.get(mdl.KEY_STATION_ID),
+                                                measurement.get(mdl.KEY_YEAR),
+                                                measurement.get(mdl.KEY_HOUR),
+                                                measurement.get(mdl.KEY_DATA_TYPE_ID))
 
-            conn.execute(text(stmt))
+        if serr.isError():
+            pass
+        elif len(_measurements) < 1:
+            stmt = _dbConfig.get_value(KEY_ADD_MEASUREMENT_STMT, 'Main').format(
+                                    measurement.get(mdl.KEY_STATION_ID),
+                                    measurement.get(mdl.KEY_YEAR),
+                                    measurement.get(mdl.KEY_HOUR),
+                                    measurement.get(mdl.KEY_DATA_TYPE_ID),
+                                    measurement.get(mdl.KEY_MEASUREMENT))
+
+        elif len(_measurements) == 1:
+            if _measurements[0].toString() != measurement.toString():
+                stmt = _dbConfig.get_value(KEY_UPDATE_MEASUREMENT_STMT, 'Main').format(
+                                        measurement.get(mdl.KEY_STATION_ID),
+                                        measurement.get(mdl.KEY_YEAR),
+                                        measurement.get(mdl.KEY_HOUR),
+                                        measurement.get(mdl.KEY_DATA_TYPE_ID),
+                                        measurement.get(mdl.KEY_MEASUREMENT),
+                                        _measurements[0].get(mdl.KEY_ID))
+
+        else:
+            raise Exception("Multiple measurements found for station: {0}, year: {1}, hour: {2}, data type: {3}".format(
+                                                measurement.get(mdl.KEY_STATION_ID),
+                                                measurement.get(mdl.KEY_YEAR),
+                                                measurement.get(mdl.KEY_HOUR),
+                                                measurement.get(mdl.KEY_DATA_TYPE_ID)))
+
+        if stmt:
+            execute_statement(config, conn, stmt)
 
             if _dbConfig.get_value(KEY_AUTO_COMMIT, 'Main') and (_dbConfig.get_value(KEY_AUTO_COMMIT, 'Main').lower() == "false"):
                 conn.commit()
-        except Exception as err:
-            serr = svc.DbUpdateError.withCause(err)
+    except Exception as err:
+        traceIt(config, "Error in upsert_measurement: {0}\nStatement: {1}".format(err, stmt))
+        serr = svc.DbUpdateError.withCause(err)
+
+    return serr
+# end def: upsert_measurement
+
+def upsert_station(config: ApplicationConfig, conn, station: mdl.Station):
+    """ Add or update the specified station """
+    global _dbConfig
+    serr = svc.NoError
+
+    stmt = None
+    try:
+        _station, serr = get_station(config, conn, station.get(mdl.KEY_CODE))
+        if serr.isError():
+            pass
+        elif _station == None:
+            stmt = _dbConfig.get_value(KEY_ADD_STATION_STMT, 'Main').format(
+                                    station.get(mdl.KEY_CODE),
+                                    station.get(mdl.KEY_STATION_NAME),
+                                    station.get(mdl.KEY_LATITUDE),
+                                    station.get(mdl.KEY_LONGITUDE),
+                                    station.get(mdl.KEY_ELEVATION))
+
+        elif _station.toString() != station.toString():
+            stmt = _dbConfig.get_value(KEY_UPDATE_STATION_STMT, 'Main').format(
+                                    station.get(mdl.KEY_STATION_NAME),
+                                    station.get(mdl.KEY_LATITUDE),
+                                    station.get(mdl.KEY_LONGITUDE),
+                                    station.get(mdl.KEY_ELEVATION),
+                                    _station.get(mdl.KEY_CODE))
+
+        if stmt:
+            execute_statement(config, conn, stmt)
+
+            if _dbConfig.get_value(KEY_AUTO_COMMIT, 'Main') and (_dbConfig.get_value(KEY_AUTO_COMMIT, 'Main').lower() == "false"):
+                conn.commit()
+    except Exception as err:
+        traceIt(config, "Error in upsert_station: {0}\nStatement: {1}".format(err, stmt))
+        serr = svc.DbUpdateError.withCause(err)
 
     return serr
 # end def: upsert_station
 
 def logInfo(message):
-    LogInfo("rbacdm", message)
+    LogInfo("weatherdb", message)
 # end def: logIt
 
 def traceIt(config: ApplicationConfig, message):
