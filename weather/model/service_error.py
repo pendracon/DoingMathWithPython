@@ -20,12 +20,13 @@ class ServiceError():
         return self.status > -1
     # end def: hasStatus
 
-    def withCause(self, src: Exception, stat: int = -1):
-        if stat > -1:
-            return ServiceError(self.code, self.message, stat, src)
-        else:
-            return ServiceError(self.code, self.message, self.status, src)
+    def withCause(self, src: Exception):
+        return ServiceError(self.code, self.message, self.status, src)
     # end def: withCause
+
+    def withMesg(self, mesg: str):
+        return ServiceError(self.code, mesg, self.status, self.cause)
+    # end def: withMesg
 
     def toString(self):
         if self.cause == None:

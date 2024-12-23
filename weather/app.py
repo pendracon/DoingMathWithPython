@@ -52,7 +52,7 @@ def get_measurements(config: cfg.ApplicationConfig, conn, is_quiet: bool = True)
             params = config.ValueOf(cfgKeys.KEY_CLIENT_PARAMS).split(';')
             if (len(params) != 4):
                 raise ValueError("Incomplete search parameters provided.")
-            
+
             for param in params:
                 key, value = param.split(':')
                 if key.strip() == 'station':
@@ -73,9 +73,9 @@ def get_measurements(config: cfg.ApplicationConfig, conn, is_quiet: bool = True)
                 else:
                     raise ValueError("Unsupported search parameter provided.")
         except Exception as err:
-            serr = svc.ClientInputError(mesg="Invalid search parameters provided.").withCause(err)
+            serr = svc.ClientInputError.withMesg("Invalid search parameters provided.").withCause(err)
 
-    if conn:
+    if conn and not serr.isError():
         try:
             start = f'{month:02d}-{day:02d}T{hour_start:02d}:00:00'
             end = f'{month:02d}-{day:02d}T{hour_end:02d}:00:00'

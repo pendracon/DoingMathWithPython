@@ -1,8 +1,6 @@
-import weather.classes.logger as log
-import weather.db.model as db
-
 from time import struct_time
 
+import weather.classes.logger as log
 from weather.model.service_error import DatetimeError, NoError
 
 def LoadTextFile(filePath) -> str:
