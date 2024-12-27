@@ -10,6 +10,7 @@ import weather.classes.app_config as cfg
 import weather.classes.logger as log
 import weather.db.model as mdl
 import weather.db.weatherdb as db
+import weather.gfx.plotter as plt
 import weather.model.config_keys as cfgKeys
 import weather.model.service_error as svc
 
@@ -82,8 +83,13 @@ def get_measurements(config: cfg.ApplicationConfig, conn, is_quiet: bool = True)
             measurements, serr = db.get_hourly_measurements(config, conn, station_id, year, start, end, data_type)
 
             if not serr.isError() and not is_quiet:
+                hours = []
+                data = []
                 for measurement in measurements:
+                    hours.append(int(measurement.get(mdl.KEY_HOUR).split('T')[1].split(':')[0]))
+                    data.append(measurement.get(mdl.KEY_MEASUREMENT))
                     print(measurement.toJson())
+                plt.PlotHourlyData(config, conn, hours, data, data_type)
         except Exception as err:
             serr = svc.DbQueryError.withCause(err)
 
