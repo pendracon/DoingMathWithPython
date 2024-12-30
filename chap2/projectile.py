@@ -82,7 +82,7 @@ def main():
                 initial_velocities.append(float(ivel.strip()))
 
             t_flights = calculate_flight_times(initial_velocities, launch_angle)
-            print("Time of flight (velocities={0}, angle={1}): {2}s".format(initial_velocities, launch_angle, t_flights))
+            #print("Time of flight (velocities={0}, angle={1}): {2}s".format(initial_velocities, launch_angle, t_flights))
 
             for i, t_flight in enumerate(t_flights):
                 intervals = frange(0, t_flight, 0.001)
@@ -95,6 +95,9 @@ def main():
                     y_coords.append(y)
 
                 plot_graph(x_coords, y_coords)
+                print("Trajectory (velocity={0}m/s, angle={1}d): flight time = {2}s, max height = {3:.2f}m, max distance = {4:.2f}m".
+                      format(initial_velocities[i], launch_angle, t_flight, max(y_coords), max(x_coords)))
+
             if len(initial_velocities) > 1:
                 plt.legend(initial_velocities, title='Initial Velocities', loc='upper right')
             plt.show()
